@@ -23,17 +23,18 @@ class App:
         :return: sum of squared elementwise differences of features
         """
         # with tf.variable_scope("content loss"):
-        content_weights = self._config['content_weights']
         loss = 0
         layers_number = len(content_original)
         for i in range(layers_number):
             sum = tf.reduce_sum((content_original[i] - content_current[i]) ** 2)
             shape = content_original[i].shape
             # denom = shape[0] ** 2 * shape[1] * shape[2]
-            denom = np.prod(shape)
-            loss += content_weights[i] * sum / denom
+            # denom = shape[1] * shape[2]
+            # denom = np.prod(shape)
+            denom = 1
+            loss += sum / denom
 
-        return loss
+        return loss / 2
 
     def get_gram_matrix(self, features):
         """
@@ -53,8 +54,7 @@ class App:
         reshaped_feautures = tf.reshape(features, [shapes[1] * shapes[2], shapes[3]])
 
         gram = tf.matmul(tf.transpose(reshaped_feautures), reshaped_feautures)
-        # gram /= tf.cast(shapes[1] * shapes[2] * shapes[3], dtype=tf.float32)
-        gram /= tf.cast(shapes[2] * shapes[3], dtype=tf.float32)
+        gram /= tf.cast(2 * shapes[1] * shapes[2] * shapes[3], dtype=tf.float32)
 
         return gram
 
@@ -80,29 +80,27 @@ class App:
         loss = 0
         for i in range(len(style_original)):
             sum = tf.reduce_sum((style_original[i] - style_current[i]) ** 2)
-            num_of_features = style_original[i].shape[0]
-            denom = 4 * num_of_features ** 2
-            loss += style_weights[i] * sum / denom
+            loss += style_weights[i] * sum
 
         return loss
 
-    def get_tv_loss(self, img):
-        """
-        Compute total variation loss.
-
-        Inputs:
-        - img: Tensor of shape (1, H, W, 3) holding an input image.
-        - tv_weight: Scalar giving the weight w_t to use for the TV loss.
-
-        Returns:
-        - loss: Tensor holding a scalar giving the total variation loss
-          for img weighted by tv_weight.
-        """
-        tv_weight = self._config['tv_weight']
-        w_variance = tf.reduce_sum((img[:, :, 1:, :] - img[:, :, :-1, :]) ** 2)
-        h_variance = tf.reduce_sum((img[:, 1:, :, :] - img[:, :-1, :, :]) ** 2)
-
-        return tv_weight * (w_variance + h_variance)
+    # def get_tv_loss(self, img):
+    #     """
+    #     Compute total variation loss.
+    #
+    #     Inputs:
+    #     - img: Tensor of shape (1, H, W, 3) holding an input image.
+    #     - tv_weight: Scalar giving the weight w_t to use for the TV loss.
+    #
+    #     Returns:
+    #     - loss: Tensor holding a scalar giving the total variation loss
+    #       for img weighted by tv_weight.
+    #     """
+    #     tv_weight = self._config['tv_weight']
+    #     w_variance = tf.reduce_sum((img[:, :, 1:, :] - img[:, :, :-1, :]) ** 2)
+    #     h_variance = tf.reduce_sum((img[:, 1:, :, :] - img[:, :-1, :, :]) ** 2)
+    #
+    #     return tv_weight * (w_variance + h_variance)
 
     def get_content_features(self, content_image):
         """
@@ -185,10 +183,15 @@ class App:
             img_var = tf.Variable(content_image, name="image")
         generated_content_features, generated_style_features = self.get_features(img_var[None])
 
+        alpha = self._config['content_weight']
+        beta = self._config['style_weight']
+
         c_loss = self.get_content_loss(content_features, generated_content_features)
+        c_loss *= alpha
         s_loss = self.get_style_loss(style_features, generated_style_features)
-        t_loss = self.get_tv_loss(img_var[None])
-        loss = c_loss + s_loss + t_loss
+        s_loss *= beta
+        # t_loss = self.get_tv_loss(img_var[None])
+        loss = c_loss + s_loss  # + t_loss
 
         # Create and initialize the Adam optimizer
         lr_var = tf.Variable(self._config['learning_rate'], name="lr")
@@ -207,7 +210,7 @@ class App:
 
         tf.summary.scalar('content loss', c_loss)
         tf.summary.scalar('style loss', s_loss)
-        tf.summary.scalar('total variance loss', t_loss)
+        # tf.summary.scalar('total variance loss', t_loss)
         tf.summary.scalar('total loss', loss)
         tf.summary.scalar('learning rate', lr_var)
         # tf.summary.image("generated image", img_var[None])
@@ -219,10 +222,22 @@ class App:
         writer = tf.summary.FileWriter(run_summary_path, self.session.graph)
         self.store_hyperparameters(run_summary_path)
 
+        decay = self._config['decaying_lr']
+        cur_lr = self._config['learning_rate']
+        n = self._config['num_iterations']
+        i = 0
         decay_at = self._config['decay_at']
+        lr_values = self._config['lr_values']
         for t in range(self._config['num_iterations']):
-            if t == decay_at:
-                self.session.run(tf.assign(lr_var, self._config['decayed_lr']))
+            # if decay and t % decay_every == 0 and t != 0:
+                # cur_lr -= decay_lr
+                # cur_lr = n / t / 10
+                # self.session.run(tf.assign(lr_var, cur_lr))
+            if decay and i < len(decay_at) and t == decay_at[i]:
+                cur_lr = lr_values[i]
+                i += 1
+                self.session.run(tf.assign(lr_var, cur_lr))
+
             _, summary, c_loss_v, s_loss_v, loss_v = self.session.run([train_op,
                                                                       merged, c_loss,
                                                                       s_loss, loss])
