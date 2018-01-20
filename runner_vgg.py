@@ -36,8 +36,8 @@ if __name__ == '__main__':
         # 'tv_weight': 0,  # 1e-2
         'summary_directory': 'summary/vgg19'
     }
-    content_image = load_image("styles/tubingen.jpg", size=256)
-    style_image = load_image("styles/stary_night.jpg", size=256)
+    content_image = load_image("styles/tubingen.jpg", size=128)
+    style_image = load_image("styles/stary_night.jpg", size=128)
 
     session = tf.Session()
 

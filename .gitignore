@@ -8,3 +8,4 @@
 /model/squeezenet.ckpt.data-00000-of-00001
 __pycache__/
 model/__pycache/
+/checkpoints/
