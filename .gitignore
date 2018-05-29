@@ -1,11 +1,6 @@
-/generated/
 /.idea/
-/summary/
-/model/squeezenet.ckpt.index
-/model/squeezenet.ckpt
-/model/squeezenet.ckpt.meta
-/model/imagenet-vgg-verydeep-19.mat
-/model/squeezenet.ckpt.data-00000-of-00001
 __pycache__/
-model/__pycache/
 /checkpoints/
+/generated/
+/summary/
+/summary_path_stub/
