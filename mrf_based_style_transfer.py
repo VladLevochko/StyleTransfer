@@ -23,15 +23,15 @@ class MrfBasedStyleTransfer(StyleTransferBase):
         self.tv_loss_v = 0
         self.loss_v = 0
 
-        self.content_weight = 10
-        self.style_weight = 1
-        self.tv_weight = 0.1
+        self.content_weight = 1
+        self.style_weight = 2
+        self.tv_weight = 1e-3
 
         self.learning_rate = tf.Variable(1e-1, name="learning_rate")
-        self.num_iterations = 30
+        self.num_iterations = 70
 
         self.content_layers = ["conv4_2"]
-        self.style_layers = ["conv2_1", "conv3_1", "conv4_1", "conv5_1"]
+        self.style_layers = ["conv3_1", "conv4_1"]
         self.model = vgg.vgg_19
         self.model_arg_scope = vgg.vgg_arg_scope()
 
@@ -47,7 +47,7 @@ class MrfBasedStyleTransfer(StyleTransferBase):
 
 if __name__ == "__main__":
     content_image_path = "styles/tubingen.jpg"
-    style_image_path = "styles/la_muse.jpg"
+    style_image_path = "styles/the_scream.jpg"
 
     content_image = image_utils.load_image_pil(content_image_path, 256)
     style_image = image_utils.load_image_pil(style_image_path, 256)
@@ -57,6 +57,6 @@ if __name__ == "__main__":
 
     st = MrfBasedStyleTransfer()
     generated = st.run(content_image, style_image)
-    generated = image_utils.deprocess(generated)
+    # generated = image_utils.deprocess(generated)
 
     print()

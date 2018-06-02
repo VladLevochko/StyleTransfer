@@ -46,7 +46,9 @@ class StyleTransferBase:
         self.prepare_summaries()
         self.run_style_transfer()
 
-        return self.x
+        x = self.session.run(self.x)
+
+        return x
 
     def build_graph(self):
         print("[.] building graph")

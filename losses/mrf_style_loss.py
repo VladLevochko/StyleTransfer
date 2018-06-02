@@ -2,21 +2,21 @@ import tensorflow as tf
 
 
 class MrfBasedStyleLoss:
-    def get_value(self, features_list_a, features_list_b, patch_size=3, stride=1):
+    def get_value(self, source_features_list, combination_features_list, patch_size=3, stride=1):
         with tf.variable_scope("style_loss"):
             loss = 0.
-            for features_a, features_b in zip(features_list_a, features_list_b):
+            for source_features, combination_features in zip(source_features_list, combination_features_list):
 
-                loss = tf.Print(loss, [features_a.shape, features_b.shape])
+                loss = tf.Print(loss, [source_features.shape, combination_features.shape])
 
-                patches_b, patches_norm_b = self.make_patches(features_b, patch_size, stride)
-                patches_a, patches_norm_a = self.make_patches(features_a, patch_size, stride)
+                combination_patches, combination_patches_norm = self.make_patches(combination_features, patch_size, stride)
+                source_patches, source_patches_norm = self.make_patches(source_features, patch_size, stride)
 
-                patch_ids = self.find_patch_matches(patches_b, patches_norm_b, tf.divide(patches_a, patches_norm_a))
-                best_a_patches = tf.gather(patches_a, patch_ids)
-                loss += tf.reduce_sum((best_a_patches - patches_b) ** 2 / patch_size ** 2)
+                patch_ids = self.find_patch_matches(combination_patches, combination_patches_norm, tf.divide(source_patches, source_patches_norm))
+                best_source_patches = tf.gather(source_patches, patch_ids)
+                loss += tf.reduce_sum((best_source_patches - combination_patches) ** 2)
 
-        return loss
+        return loss / patch_size ** 2
 
     def make_patches(self, x, patch_size, stride):
         with tf.variable_scope("make_patches"):
@@ -25,10 +25,7 @@ class MrfBasedStyleLoss:
             rates = [1] * 4
             patches = tf.extract_image_patches(x, ksizes, strides, rates, padding="VALID")
 
-            # patches = tf.Print(patches, [x.shape, patches.shape], message="x.shape, p.shape ")
-
-            patches = tf.reshape(patches, (x.shape[3], -1, patch_size, patch_size))
-            patches = tf.transpose(patches, [1, 0, 2, 3])
+            patches = tf.reshape(patches, (-1, x.shape[3], patch_size, patch_size))
             patches_norm = tf.sqrt(tf.reduce_sum(patches ** 2, axis=(1, 2, 3), keep_dims=True))
 
         return patches, patches_norm
@@ -42,3 +39,6 @@ class MrfBasedStyleLoss:
             argmax = tf.squeeze(argmax)
 
         return argmax
+
+    def find_patch_matches_d(self, a, b, a_norm, b_norm):
+        pass
