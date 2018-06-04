@@ -20,29 +20,18 @@ class VggBasedStyleTransfer(StyleTransferBase):
         self.style_loss = GramBasedStyleLoss()
         self.total_variation_loss = TotalVariationLoss()
 
-        self.content_loss_v = 0
-        self.style_loss_v = 0
-        self.tv_loss_v = 0
-        self.loss_v = 0
-
         self.content_weight = 0.0001
         self.style_weight = 100
         self.tv_weight = 0.1
 
-        self.learning_rate = tf.Variable(8e-1, name="learning_rate")
+        self.learning_rate_value = 8e-1
+        self.learning_rate = tf.Variable(self.learning_rate_value, name="learning_rate")
         self.num_iterations = 30
 
         self.content_layers = ["conv4_2"]
         self.style_layers = ["conv1_1", "conv2_1", "conv3_1", "conv4_1", "conv5_1"]
         self.model = vgg.vgg_19
         self.model_arg_scope = vgg.vgg_arg_scope()
-
-        self.train_op = None
-        self.summaries = None
-        self.writer = None
-
-        self.content_image = None
-        self.style_image = None
 
         self.checkpoint_path = "checkpoints/vgg_19.ckpt"
 

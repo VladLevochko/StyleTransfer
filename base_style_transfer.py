@@ -1,3 +1,6 @@
+import os
+import json
+import time
 import tensorflow as tf
 import image_utils
 import tensorflow.contrib.slim as slim
@@ -6,6 +9,8 @@ import tensorflow.contrib.slim as slim
 class StyleTransferBase:
     def __init__(self):
         self.session = None
+
+        self.name = "base_style_transfer"
 
         self.x = None
         self.content_loss = None
@@ -21,7 +26,8 @@ class StyleTransferBase:
         self.style_weight = 0
         self.tv_weight = 0
 
-        self.learning_rate = None
+        self.learning_rate_value = 0
+        self.learning_rate = tf.Variable(self.learning_rate_value, name="learning_rate")
         self.num_iterations = 0
 
         self.content_layers = []
@@ -36,13 +42,17 @@ class StyleTransferBase:
         self.content_image = None
         self.style_image = None
 
+        self.opt_vars = None
         self.checkpoint_path = "checkpoint_path_stub"
+
+        self.summary_path = "summary_path_stub"
 
     def run(self, content_image, style_image):
         self.content_image = content_image
         self.style_image = style_image
 
         self.build_graph()
+        self.initialize_variables()
         self.prepare_summaries()
         self.run_style_transfer()
 
@@ -70,9 +80,14 @@ class StyleTransferBase:
 
         with tf.variable_scope("optimizer") as opt_scope:
             self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss_v, var_list=[self.x])
-        opt_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=opt_scope.name)
+        self.opt_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=opt_scope.name)
 
-        self.session.run(tf.variables_initializer([self.learning_rate, self.x] + opt_vars))
+        print("[.] graph built")
+
+    def initialize_variables(self):
+        print("[.] initializing variables")
+
+        self.session.run(tf.variables_initializer([self.learning_rate, self.x] + self.opt_vars))
 
         restore_variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="features")
         rv_dict = {}
@@ -85,9 +100,11 @@ class StyleTransferBase:
         saver = tf.train.Saver(var_list=rv_dict)
         saver.restore(self.session, self.checkpoint_path)
 
-        print("[.] graph built")
+        print("[.] variables initialized")
 
     def prepare_summaries(self):
+        print("[.] preparing summaries")
+
         tf.summary.scalar("content loss", self.content_loss_v * self.content_weight)
         tf.summary.scalar("style loss", self.style_loss_v * self.style_weight)
         tf.summary.scalar("total variation loss", self.tv_loss_v * self.tv_weight)
@@ -96,8 +113,11 @@ class StyleTransferBase:
         tf.summary.image("generated image", self.x[None])
 
         self.summaries = tf.summary.merge_all()
-        summary_path = self.get_summary_path()
-        self.writer = tf.summary.FileWriter(summary_path, self.session.graph)
+        self.summary_path = self.get_summary_path()
+        self.prepare_summary_directory(self.summary_path)
+        self.writer = tf.summary.FileWriter(self.summary_path, self.session.graph)
+
+        print("[.] summaries prepared")
 
     def run_style_transfer(self):
         print("[.] running style transfer")
@@ -109,19 +129,38 @@ class StyleTransferBase:
                                                                     self.tv_loss_v])
 
             self.writer.add_summary(summaries_values, i)
-            print("[.] -- loss: {}  content loss: {}  style loss: {}  tv loss: {}"
+            print("[.]    loss: {}  content loss: {}  style loss: {}  tv loss: {}"
                   .format(l, cl, sl, tvl))
 
             if i % 10 == 0:
                 print("[.] --> saving image")
                 x = self.session.run([tf.squeeze(self.x)])
                 x = image_utils.deprocess(x[0])
-                image_utils.save_generated_image(x, self.get_summary_path(), name=str(i))
+                image_utils.save_generated_image(x, self.summary_path, name=str(i))
 
         print("[.] style transfer done")
 
     def get_summary_path(self):
-        return "summary_path_stub"
+        path = os.path.join("summary", self.name)
+        path = os.path.join(path, str(time.time()).split(".")[0])
+
+        return path
+
+    def prepare_summary_directory(self, path):
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        with open(os.path.join(path, "params.json"), "w") as file:
+            params_dict = {
+                "content_weight": self.content_weight,
+                "style_weight": self.style_weight,
+                "total_variation_weight": self.tv_weight,
+                "learning_rate": self.learning_rate_value,
+                "iterations_number": self.num_iterations,
+                "content_layers": self.content_layers,
+                "style_layers": self.style_layers
+            }
+            json.dump(params_dict, file)
 
     def get_content_features(self, image):
         content_features = self.get_features(image, self.content_layers)

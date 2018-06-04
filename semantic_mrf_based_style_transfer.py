@@ -15,42 +15,32 @@ class SemanticMrfBasedStyleTransfer(StyleTransferBase):
 
         self.session = tf.Session()
 
+        self.name = "soft_masks"
+
         self.x = None
         self.content_loss = ContentLoss()
         self.style_loss = MrfBasedStyleLoss()
         self.total_variation_loss = TotalVariationLoss()
 
-        self.content_loss_v = 0
-        self.style_loss_v = 0
-        self.tv_loss_v = 0
-        self.loss_v = 0
-
         self.content_weight = 1
-        self.style_weight = 5
-        self.semantic_weight = 1
-        self.tv_weight = 0
+        self.style_weight = 2
+        self.semantic_weight = 1  # it doesn't work yet
+        self.tv_weight = 1
 
-        self.learning_rate = tf.Variable(5e-1, name="learning_rate")
-        self.num_iterations = 50
+        self.learning_rate_value = 6e-1
+        self.learning_rate = tf.Variable(self.learning_rate_value, name="learning_rate")
+        self.num_iterations = 100
 
         self.content_layers = ["conv4_2"]
-        self.style_layers = ["conv3_1", "conv4_1"]
+        self.style_layers = ["conv3_1", "conv4_1", "conv5_1"]
         self.model = vgg.vgg_19
         self.model_arg_scope = vgg.vgg_arg_scope()
-
-        self.train_op = None
-        self.summaries = None
-        self.writer = None
-
-        self.content_image = None
-        self.style_image = None
-
         self.checkpoint_path = "checkpoints/vgg_19.ckpt"
-        self.semantic_model_checkpoint_path = "/home/vladyslav/projects/tf-image-segmentation/fcn_16s_checkpoint/model_fcn16s_final.ckpt"
-        self.number_of_classes = 21
 
+        self.number_of_classes = 21
         self.content_semantic_features = None
         self.style_semantic_features = None
+        self.semantic_model_checkpoint_path = "/home/vladyslav/projects/tf-image-segmentation/fcn_16s_checkpoint/model_fcn16s_final.ckpt"
 
     def build_graph(self):
         print("[.] building graph")
@@ -59,12 +49,12 @@ class SemanticMrfBasedStyleTransfer(StyleTransferBase):
 
         content_features = self.get_content_features(self.content_image)
         style_features = self.get_style_features(self.style_image)
-        style_features = self.concat_semantic_features(style_features, self.style_semantic_features)
+        style_features = self.append_semantic_features(style_features, self.style_semantic_features)
 
         self.x = tf.Variable(tf.random_uniform(self.content_image.shape, 0, 1, dtype=tf.float32), name="x")
         x_content_features = self.get_content_features(self.x)
         x_style_features = self.get_style_features(self.x)
-        x_style_features = self.concat_semantic_features(x_style_features, self.content_semantic_features)
+        x_style_features = self.append_semantic_features(x_style_features, self.content_semantic_features)
 
         self.content_loss_v = self.content_loss.get_value(content_features, x_content_features)
         self.style_loss_v = self.style_loss.get_value(style_features, x_style_features)
@@ -76,24 +66,11 @@ class SemanticMrfBasedStyleTransfer(StyleTransferBase):
 
         with tf.variable_scope("optimizer") as opt_scope:
             self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss_v, var_list=[self.x])
-        opt_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=opt_scope.name)
-
-        self.session.run(tf.variables_initializer([self.learning_rate, self.x] + opt_vars))
-
-        restore_variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="features")
-        rv_dict = {}
-        for var in restore_variables:
-            name = var.name
-            name = name.replace("features/", "")
-            name = name.split(":")[0]
-            rv_dict[name] = var
-
-        saver = tf.train.Saver(var_list=rv_dict)
-        saver.restore(self.session, self.checkpoint_path)
+        self.opt_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=opt_scope.name)
 
         print("[.] graph built")
 
-    def concat_semantic_features(self, style_features, semantic_features):
+    def append_semantic_features(self, style_features, semantic_features):
         map = {}
         prev = tf.expand_dims(semantic_features, 0)
         for i in range(5):
@@ -126,10 +103,10 @@ class SemanticMrfBasedStyleTransfer(StyleTransferBase):
 
 
 if __name__ == "__main__":
-    content_image_path = "styles/Seth.jpg"
-    style_image_path = "styles/Gogh.jpg"
+    content_image_path = "styles/tubingen.jpg"
+    style_image_path = "styles/picasso_1.jpg"
 
-    size = (320, 256)
+    size = (430, 320)
     content_image, original_content_image_size = image_utils.load_image_pil(content_image_path, size)
     style_image, _ = image_utils.load_image_pil(style_image_path, size)
 
