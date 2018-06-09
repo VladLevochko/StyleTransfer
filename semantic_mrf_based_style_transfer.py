@@ -23,13 +23,13 @@ class SemanticMrfBasedStyleTransfer(StyleTransferBase):
         self.total_variation_loss = TotalVariationLoss()
 
         self.content_weight = 1
-        self.style_weight = 2
+        self.style_weight = 1
         self.semantic_weight = 1  # it doesn't work yet
         self.tv_weight = 1
 
-        self.learning_rate_value = 8e-1
+        self.learning_rate_value = 6e-1
         self.learning_rate = tf.Variable(self.learning_rate_value, name="learning_rate")
-        self.num_iterations = 200
+        self.num_iterations = 100
 
         self.content_layers = ["conv4_2"]
         self.style_layers = ["conv4_1", "conv5_1"]
@@ -40,15 +40,15 @@ class SemanticMrfBasedStyleTransfer(StyleTransferBase):
         self.number_of_classes = 21
         self.content_semantic_features = None
         self.style_semantic_features = None
-        self.semantic_model_checkpoint_path = "/home/vladyslav/projects/tf-image-segmentation/fcn_16s_checkpoint/model_fcn16s_final.ckpt"
+        self.semantic_model_checkpoint_path = "checkpoints/fcn_16s_checkpoint/model_fcn16s_final.ckpt"
 
     def build_graph(self):
         print("[.] building graph")
 
         self.precompute_semantic_features()
 
-        content_features = self.get_content_features(self.content_image)
-        style_features = self.get_style_features(self.style_image)
+        content_features = self.get_content_features(self.preprocessed_content_image)
+        style_features = self.get_style_features(self.preprocessed_style_image)
         style_features = self.append_semantic_features(style_features, self.style_semantic_features)
 
         self.x = tf.Variable(tf.random_uniform(self.content_image.shape, 0, 1, dtype=tf.float32), name="x")
@@ -118,18 +118,18 @@ class SemanticMrfBasedStyleTransfer(StyleTransferBase):
 
 
 if __name__ == "__main__":
-    content_image_path = "styles/bw.jpg"
-    style_image_path = "styles/Gogh.jpg"
+    content_image_path = "styles/cars/golf7r.jpg"
+    style_image_path = "styles/car_drawing.jpg"
 
-    size = (245, 330)
+    size = (333, 229)
     content_image, original_content_image_size = image_utils.load_image_pil(content_image_path, size)
     style_image, _ = image_utils.load_image_pil(style_image_path, size)
 
-    content_image = image_utils.preprocess(content_image)
-    style_image = image_utils.preprocess(style_image)
+    # content_image = image_utils.preprocess(content_image)
+    # style_image = image_utils.preprocess(style_image)
 
     st = SemanticMrfBasedStyleTransfer()
     generated = st.run(content_image, style_image)
-    generated = image_utils.deprocess(generated)
+    # generated = image_utils.deprocess(generated)
 
     image_utils.save_generated_image(generated, "summary", "generated_image_name_stub", original_content_image_size)

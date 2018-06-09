@@ -41,6 +41,8 @@ class StyleTransferBase:
 
         self.content_image = None
         self.style_image = None
+        self.preprocessed_content_image = None
+        self.preprocessed_style_image = None
 
         self.opt_vars = None
         self.checkpoint_path = "checkpoint_path_stub"
@@ -52,6 +54,8 @@ class StyleTransferBase:
             self.content_image = content_image
         with tf.variable_scope("style_image"):
             self.style_image = style_image
+        self.preprocessed_content_image = self.preprocess_image(self.content_image)
+        self.preprocessed_style_image = self.preprocess_image(self.style_image)
 
         self.build_graph()
         self.initialize_variables()
@@ -60,13 +64,19 @@ class StyleTransferBase:
 
         x = self.session.run(self.x)
 
-        return x
+        return self.deprocess_image(x)
+
+    def preprocess_image(self, image):
+        return image_utils.preprocess(image)
+
+    def deprocess_image(self, image):
+        return image_utils.deprocess(image)
 
     def build_graph(self):
         print("[.] building graph")
 
-        content_features = self.get_content_features(self.content_image)
-        style_features = self.get_style_features(self.style_image)
+        content_features = self.get_content_features(self.preprocessed_content_image)
+        style_features = self.get_style_features(self.preprocessed_style_image)
 
         self.x = tf.Variable(tf.random_uniform(self.content_image.shape, 0, 1, dtype=tf.float32), name="x")
         x_content_features = self.get_content_features(self.x)
@@ -117,6 +127,8 @@ class StyleTransferBase:
         tf.summary.scalar("total variation loss", self.tv_loss_v)
         tf.summary.scalar("loss", self.loss_v)
         tf.summary.scalar("learning_rate", self.learning_rate)
+        tf.summary.image("content image", self.content_image[None])
+        tf.summary.image("style image", self.style_image[None])
         tf.summary.image("generated image", self.x[None])
 
         self.summaries = tf.summary.merge_all()

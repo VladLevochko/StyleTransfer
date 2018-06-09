@@ -27,7 +27,7 @@ class MrfBasedStyleLoss:
                 patches = tf.extract_image_patches(x, ksizes, strides, rates, padding="VALID")
 
                 patches = tf.reshape(patches, (-1, x.shape[3], patch_size, patch_size))
-                patches_norm = tf.sqrt(tf.reduce_sum(patches ** 2, axis=(1, 2, 3), keep_dims=True))
+                patches_norm = tf.sqrt(tf.reduce_sum(patches ** 2, axis=(1, 2, 3), keepdims=True))
 
         return patches, patches_norm
 
