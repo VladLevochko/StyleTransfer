@@ -48,8 +48,10 @@ class StyleTransferBase:
         self.summary_path = "summary_path_stub"
 
     def run(self, content_image, style_image):
-        self.content_image = content_image
-        self.style_image = style_image
+        with tf.variable_scope("content_image"):
+            self.content_image = content_image
+        with tf.variable_scope("style_image"):
+            self.style_image = style_image
 
         self.build_graph()
         self.initialize_variables()
@@ -70,13 +72,18 @@ class StyleTransferBase:
         x_content_features = self.get_content_features(self.x)
         x_style_features = self.get_style_features(self.x)
 
-        self.content_loss_v = self.content_loss.get_value(content_features, x_content_features)
-        self.style_loss_v = self.style_loss.get_value(style_features, x_style_features)
-        self.tv_loss_v = self.total_variation_loss.get_value(self.x)
+        with tf.variable_scope("content_loss"):
+            self.content_loss_v = self.content_weight * \
+                                  self.content_loss.get_value(content_features, x_content_features)
+        with tf.variable_scope("style_loss"):
+            self.style_loss_v = self.style_weight * \
+                                self.style_loss.get_value(style_features, x_style_features)
+        with tf.variable_scope("total_variation_loss"):
+            self.tv_loss_v = self.tv_weight * \
+                             self.total_variation_loss.get_value(self.x)
 
-        self.loss_v = self.content_weight * self.content_loss_v + \
-                      self.style_weight * self.style_loss_v + \
-                      self.tv_weight * self.tv_loss_v
+        with tf.variable_scope("total_loss"):
+            self.loss_v = self.content_loss_v + self.style_loss_v + self.tv_loss_v
 
         with tf.variable_scope("optimizer") as opt_scope:
             self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss_v, var_list=[self.x])
@@ -105,9 +112,9 @@ class StyleTransferBase:
     def prepare_summaries(self):
         print("[.] preparing summaries")
 
-        tf.summary.scalar("content loss", self.content_loss_v * self.content_weight)
-        tf.summary.scalar("style loss", self.style_loss_v * self.style_weight)
-        tf.summary.scalar("total variation loss", self.tv_loss_v * self.tv_weight)
+        tf.summary.scalar("content loss", self.content_loss_v)
+        tf.summary.scalar("style loss", self.style_loss_v)
+        tf.summary.scalar("total variation loss", self.tv_loss_v)
         tf.summary.scalar("loss", self.loss_v)
         tf.summary.scalar("learning_rate", self.learning_rate)
         tf.summary.image("generated image", self.x[None])
@@ -163,11 +170,13 @@ class StyleTransferBase:
             json.dump(params_dict, file)
 
     def get_content_features(self, image):
-        content_features = self.get_features(image, self.content_layers)
+        with tf.name_scope("content_features"):
+            content_features = self.get_features(image, self.content_layers)
         return content_features
 
     def get_style_features(self, image):
-        style_features = self.get_features(image, self.style_layers)
+        with tf.name_scope("style_features"):
+            style_features = self.get_features(image, self.style_layers)
         return style_features
 
     def get_features(self, image, layers):

@@ -21,6 +21,7 @@ def load_image_pil(filename, size=None):
         np.array: Pixel grid of image.
     """
     image = Image.open(filename)
+    image = image.convert("RGB")
     original_size = image.size
 
     if size is not None:

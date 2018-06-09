@@ -11,7 +11,7 @@ class GramBasedStyleLoss:
 
                 shape = tf.cast(tf.shape(features_a), dtype=tf.float32)
 
-                loss += tf.reduce_sum((gm_a - gm_b) ** 2) / (4 * (shape[1] * shape[2]) ** 2 * shape[3] ** 3)
+                loss += tf.reduce_sum((gm_a - gm_b) ** 2) / (4 * (shape[1] * shape[2]) ** 2 * shape[3] ** 2)
 
         return loss
 

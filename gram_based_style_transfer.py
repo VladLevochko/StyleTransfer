@@ -20,13 +20,13 @@ class VggBasedStyleTransfer(StyleTransferBase):
         self.style_loss = GramBasedStyleLoss()
         self.total_variation_loss = TotalVariationLoss()
 
-        self.content_weight = 0.0001
-        self.style_weight = 100
-        self.tv_weight = 0.1
+        self.content_weight = 5e1
+        self.style_weight = 1e2
+        self.tv_weight = 1e2
 
-        self.learning_rate_value = 8e-1
+        self.learning_rate_value = 1e1
         self.learning_rate = tf.Variable(self.learning_rate_value, name="learning_rate")
-        self.num_iterations = 30
+        self.num_iterations = 100
 
         self.content_layers = ["conv4_2"]
         self.style_layers = ["conv1_1", "conv2_1", "conv3_1", "conv4_1", "conv5_1"]
@@ -40,8 +40,9 @@ if __name__ == "__main__":
     content_image_path = "styles/tubingen.jpg"
     style_image_path = "styles/la_muse.jpg"
 
-    content_image = image_utils.load_image_pil(content_image_path, 256)
-    style_image = image_utils.load_image_pil(style_image_path, 256)
+    size = 341, 256
+    content_image, original_content_image_size = image_utils.load_image_pil(content_image_path, size)
+    style_image, _ = image_utils.load_image_pil(style_image_path, size)
 
     content_image = image_utils.preprocess(content_image)
     style_image = image_utils.preprocess(style_image)
@@ -50,4 +51,4 @@ if __name__ == "__main__":
     generated = st.run(content_image, style_image)
     generated = image_utils.deprocess(generated)
 
-    print()
+    image_utils.save_generated_image(generated, "summary", "generated_image_name_stub", original_content_image_size)
