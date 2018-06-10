@@ -22,14 +22,14 @@ class SemanticMrfBasedStyleTransfer(StyleTransferBase):
         self.style_loss = MrfBasedStyleLoss()
         self.total_variation_loss = TotalVariationLoss()
 
-        self.content_weight = 1
-        self.style_weight = 1
-        self.semantic_weight = 1  # it doesn't work yet
+        self.content_weight = 10
+        self.style_weight = 25
+        self.semantic_weight = 100
         self.tv_weight = 1
 
-        self.learning_rate_value = 6e-1
+        self.learning_rate_value = 8e-1
         self.learning_rate = tf.Variable(self.learning_rate_value, name="learning_rate")
-        self.num_iterations = 100
+        self.num_iterations = 350
 
         self.content_layers = ["conv4_2"]
         self.style_layers = ["conv4_1", "conv5_1"]
@@ -79,7 +79,7 @@ class SemanticMrfBasedStyleTransfer(StyleTransferBase):
         means = tf.reduce_mean(semantic_features, axis=[0, 1])
         _, indices = tf.nn.top_k(means, k=5)
         semantic_features = tf.gather(semantic_features, indices, axis=2)
-        # semantic_features = tf.transpose(semantic_features, [1, 2, 0])
+        semantic_features = semantic_features * self.semantic_weight
 
         with tf.name_scope("semantic_features_downsampling"):
             map = {}
@@ -112,16 +112,25 @@ class SemanticMrfBasedStyleTransfer(StyleTransferBase):
 
         with tf.name_scope("semantic_features_precomputation"):
             with tf.variable_scope("content_semantic_features"):
-                self.content_semantic_features = computed_semantic_features[0]
+                self.content_semantic_features = self.normalize_tensor(computed_semantic_features[0])
             with tf.variable_scope("style_semantic_features"):
-                self.style_semantic_features = computed_semantic_features[1]
+                self.style_semantic_features = self.normalize_tensor(computed_semantic_features[1])
+
+    def normalize_tensor(self, tensor):
+        return tf.div(
+            tf.subtract(tensor, tf.reduce_min(tensor)),
+            tf.maximum(
+                tf.subtract(tf.reduce_max(tensor), tf.reduce_min(tensor)),
+                1e-12
+            )
+        )
 
 
 if __name__ == "__main__":
     content_image_path = "styles/cars/golf7r.jpg"
     style_image_path = "styles/car_drawing.jpg"
 
-    size = (333, 229)
+    size = (500, 343)
     content_image, original_content_image_size = image_utils.load_image_pil(content_image_path, size)
     style_image, _ = image_utils.load_image_pil(style_image_path, size)
 
